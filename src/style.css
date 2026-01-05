@@ -1,0 +1,395 @@
+:root {
+	--bg: #000000;
+	--fg: white;
+	--sb-size: 4px;
+
+	--sidebar-width: 250pt;
+	--toolbar-height: 3.2rem;
+	--header-height: 2rem;
+} 
+
+html, body {
+	background-color: black;
+	color: var(--fg);
+	padding: 0px;
+	margin: 0px;
+	display: flex;
+	position: absolute;
+	top: 0px;
+	left: 0px;
+	width: 100vw;
+	height: 100vh;
+	overflow: hidden;
+	background-color: color-mix(in srgb, var(--bg) 90%, white 10%);
+}
+
+sidebar, content {
+	padding: 0px;
+	margin: 0px;
+	
+	position: absolute;
+	top: 0px;
+	
+	/* allow children to manage their own scrolling */
+	overflow: visible;
+
+	border-radius: 1rem;
+}
+
+sidebar {
+	box-shadow: 0 0 1rem black;
+	left: 0px;
+	width: calc(var(--sidebar-width) - 2rem);
+	height: calc(100vh - 2rem);
+	margin: 1rem;
+	font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif !important;
+	background-color: color-mix(in srgb, var(--bg) 90%, black 10%);
+	overflow: auto;
+	-webkit-overflow-scrolling: touch;
+	padding: 0;
+
+	/**/height: calc(100vh - 2rem);
+	min-height: calc(100vh - 2rem);
+	max-height: calc(100vh - 2rem);
+	user-select: none !important;
+}
+
+content {
+	left: var(--sidebar-width);
+	width: calc(100vw - var(--sidebar-width));
+	display: flex;
+	align-items: flex-start;
+	justify-content: center;
+	padding-bottom: calc(var(--toolbar-height) + 1.25rem);
+	overflow: visible;
+	-webkit-overflow-scrolling: touch;
+
+	/**/height: 100vh;
+	min-height: 100vh;
+	max-height: 100vh;
+}
+
+padded {
+	padding: 0px;
+	padding-block: calc(1rem + var(--header-height));
+	margin: 0px;
+	width: 500pt;
+	max-width: 100%;
+	box-sizing: border-box;
+	align-self: flex-start; /* ensure it stays anchored at the top of the content area */
+	overflow-wrap: anywhere;
+	max-height: calc(100vh - var(--toolbar-height));
+	overflow: auto;
+	-webkit-overflow-scrolling: touch;
+	padding-inline: 10pt;
+}
+
+.doc-header {
+	position: fixed;
+	top: 0.6rem;
+	left: calc(50% + var(--sidebar-width) / 2);
+	transform: translate(-50%, 0);
+	width: 500pt;
+	max-width: calc(100% - 2rem - var(--sidebar-width));
+	text-align: center;
+	font-size: 0.95rem;
+	color: rgba(255,255,255,0.85);
+	padding: 0.25rem 0.5rem;
+	background: transparent;
+	z-index: 4;
+	pointer-events: none;
+	-webkit-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+}
+
+h1, h2 {
+	text-align: center;
+}
+
+*::-webkit-scrollbar {
+	width: var(--sb-size);
+}
+
+*::-webkit-scrollbar-track {
+	background: transparent;
+	border-radius: var(--sb-size);
+}
+
+*::-webkit-scrollbar-thumb {
+	background: var(--fg);
+	border-radius: var(--sb-size);
+	
+}
+
+@supports not selector(::-webkit-scrollbar) {
+	body {
+		scrollbar-color: var(--fg) transparent;
+	}
+}
+
+padded[contenteditable="true"] {
+	outline: none;
+	white-space: pre-wrap; /* preserve newlines when editing */
+	min-height: 60vh;
+}
+
+.sidebar-header {
+	display: flex;
+	justify-content: flex-start;
+	gap: 0.5rem;
+	align-items: center;
+	padding: 0.5rem;
+}
+
+.sidebar-title {
+	font-weight: 700;
+	font-size: 1rem;
+	padding-left: 0.25rem;
+	color: var(--fg);
+}
+
+.new-doc {
+	background: var(--fg);
+	border: 1px solid var(--fg);
+	color: var(--bg);
+	padding: 0.25rem 0.5rem;
+	border-radius: 100%;
+	font-weight: 900;
+	cursor: pointer;
+}
+
+.doc-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	padding: 0.5rem;
+}
+
+.doc-item {
+	display: grid;
+	grid-template-columns: 1fr auto auto;
+	gap: 0.5rem;
+	align-items: center;
+	padding: 0.4rem 0.6rem;
+	border-radius: 0.25rem;
+	cursor: pointer;
+}
+
+.doc-item:hover {
+	background: rgba(255,255,255,0.02);
+}
+
+.doc-item.active {
+	background: linear-gradient(90deg, rgba(200, 100, 0, 0.393), rgba(255,255,255,0.03));
+	border-left: 4px solid rgba(200,100,0,0.95);
+	padding-left: 0.6rem;
+	box-shadow: 2px 0px 6px rgba(129, 73, 73, 0.837) inset;
+	outline: none;
+	transition: background .12s ease, border-color .12s ease;
+}
+
+.doc-item.active .doc-title {
+	font-weight: 700;
+}
+
+.doc-title {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	cursor: default;
+	/* avoid accidental selection/double-click side-effects */
+	user-select: none;
+}
+
+.doc-title:hover {
+	cursor: text;
+	user-select: none;
+}
+
+.doc-title-input {
+	width: 100%;
+	background: transparent;
+	border: none;
+	color: var(--fg);
+	font: inherit;
+	padding: 0;
+	margin: 0;
+	outline: none;
+}
+
+
+.doc-title-input:focus {
+	border-radius: 0.5rem;
+	background: linear-gradient(90deg, rgba(123, 80, 38, 0.393), rgba(255,255,255,0.03));
+	box-shadow: 0 2px 6px rgba(232, 176, 176, 0.511) inset;
+	outline: none;
+	transition: background .12s ease, border-color .12s ease;
+}
+
+.doc-meta {
+	color: rgba(255,255,255,0.6);
+	font-size: 0.8rem;
+}
+
+.doc-actions .doc-delete {
+	background: transparent;
+	border: 1px solid rgba(255,255,255,0.04);
+	color: rgba(255,255,255,0.7);
+	padding: 0.2rem 0.4rem;
+	border-radius: 0.25rem;
+	cursor: pointer;
+}
+
+.doc-delete:hover {
+	background-color: #b30c0ca8 !important;
+}
+
+/* Editor toolbar */
+.editor-toolbar {
+	font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif !important;
+	position: fixed;
+	bottom: 0;
+	left: calc(50% + var(--sidebar-width) / 2);
+	transform: translate(-50%, -00%);
+	place-content: center;
+	width: 500pt;
+	max-width: calc(100% - 2rem - var(--sidebar-width));
+	width: max-content;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+	padding: 0.5rem 0.6rem;
+	height: fit-content;
+	align-items: center;
+	border-top-right-radius: 0.5rem;
+	border-top-left-radius: 0.5rem;
+	background: rgb(0, 0, 0);
+	box-shadow: 0 0 1rem black;
+	z-index: 5;
+	user-select: none !important;
+}
+
+.toolbar-btn, select {
+	background: var(--bg);
+	border: solid 0.15rem var(--fg);
+	color: var(--fg);
+	padding: 0.25rem 0.5rem;
+	border-radius: 0.5rem;
+	min-width: 2rem;
+	cursor: pointer;
+	height: 2rem;
+	width: max-content;
+	margin-inline: 0.1rem;
+	font-weight: 600;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.toolbar-btn svg {
+	width: 1rem;
+	height: 1rem;
+	display: block;
+	fill: currentColor;
+}
+
+.toolbar-btn svg text {
+	fill: currentColor;
+	dominant-baseline: middle;
+	text-anchor: middle;
+}
+
+.toolbar-btn:focus {
+	outline: 2px solid rgba(255,255,255,0.08);
+	box-shadow: 0 0 0 3px rgba(255,255,255,0.03) inset;
+}
+
+.toolbar-btn[aria-label] {
+	position: relative;
+}
+
+.toolbar-btn[aria-label]:hover::after {
+	content: attr(title);
+	position: absolute;
+	top: -2.6rem;
+	left: 50%;
+	transform: translateX(-50%);
+	background: rgba(0,0,0,0.7);
+	color: white;
+	padding: 0.25rem 0.45rem;
+	border-radius: 0.25rem;
+	font-size: 0.78rem;
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+.toolbar-btn.active {
+	background-color: var(--fg);
+	color: var(--bg);
+}
+/* Clear button styling */
+.toolbar-btn[data-cmd="clear"] {
+	border-color: rgba(209, 97, 10, 0.741);
+	color: rgb(248, 137, 25);
+}
+
+@media print {
+	html, body {
+		width: 100vw !important;
+		height: auto !important;
+		margin: 0 !important;
+		padding: 0 !important;
+	}
+
+	body {
+		background: white !important;
+		color: black !important;
+	}
+
+	/* hide app chrome */
+	sidebar,
+	.editor-toolbar,
+	.sidebar-header,
+	.doc-header,
+	.doc-list,
+	.doc-item,
+	.doc-actions,
+	.toolbar-btn,
+	.new-doc {
+		display: none !important;
+	} 
+
+	content {
+		position: static !important;
+		left: 0 !important;
+		width: 100vw !important;
+		transform: none !important;
+		display: block !important;
+	}
+
+	padded,
+	padded[contenteditable="true"] {
+		display: block !important;
+		position: static !important;
+		width: 100% !important;
+		max-width: none !important;
+		margin: 0 !important;
+		padding: 0 !important;
+		box-sizing: border-box !important;
+		overflow: visible !important;
+		-webkit-print-color-adjust: exact;
+		print-color-adjust: exact;
+	}
+
+	/* ensure any fixed-width defaults are removed */
+	padded, content { min-width: 0 !important; }
+
+	/* Ensure text prints in black and links are plain */
+	padded * {
+		color: black !important;
+		text-decoration: none !important;
+	}
+
+	@page { margin: 1in; }
+}

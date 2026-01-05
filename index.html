@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<link rel="icon" type="image/svg+xml" href="/vite.svg" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Notes</title>
+	<link rel="stylesheet" href="src/style.css">
+	<script type="module" src="/src/main.ts"></script>
+</head>
+<body>
+	<sidebar>
+		<div class="sidebar-header">
+			<button class="new-doc">+</button>
+			<div class="sidebar-title">Notes</div>
+		</div>
+		<div class="doc-list"></div>
+	</sidebar> 
+	<content>
+		<div class="doc-header" id="doc-header" aria-live="polite"></div>
+		<padded>
+		</padded>
+
+		<!-- Static toolbar: script will bind to these controls -->
+		<div class="editor-toolbar">
+			<button type="button" class="toolbar-btn" data-cmd="formatBlock" data-value="<h1>" title="Heading 1" aria-label="Heading 1">H1</button>
+			<button type="button" class="toolbar-btn" data-cmd="formatBlock" data-value="<h2>" title="Heading 2" aria-label="Heading 2">H2</button>
+			<button type="button" class="toolbar-btn" data-cmd="formatBlock" data-value="<h3>" title="Heading 3" aria-label="Heading 3">H3</button>
+
+			<button type="button" class="toolbar-btn" data-cmd="bold" title="Bold (⌘ + B)" aria-label="Bold (ctrl/⌘+B)">
+				<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><text x="12" y="14" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto" font-weight="900" font-size="1rem">B</text></svg>
+			</button>
+
+			<button type="button" class="toolbar-btn" data-cmd="italic" title="Italic (⌘ + I)" aria-label="Italic (ctrl/⌘+I)">
+				<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><text x="12" y="14" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto" font-style="italic" font-size="1rem">I</text></svg>
+			</button>
+
+			<button type="button" class="toolbar-btn" data-cmd="underline" title="Underline (⌘ + U)" aria-label="Underline (ctrl/⌘+U)">
+				<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><text x="12" y="14" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto" style="text-decoration: underline;" font-size="1rem">U</text></svg>
+			</button>
+
+			<button type="button" class="toolbar-btn" data-cmd="strikeThrough" title="Strikethrough (⌘ + Shift + X)" aria-label="Strikethrough (ctrl/⌘+Shift+X)">
+				<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><text x="12" y="14" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto" style="text-decoration: line-through;" font-size="1rem">S</text></svg>
+			</button>
+
+			<button type="button" class="toolbar-btn" data-cmd="subscript" title="Subscript (⌘ + .)" aria-label="Subscript (ctrl/⌘/alt+.)">
+				<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><text x="8" y="14" font-family="system-ui, -apple-system, 'Segoe UI', Roboto" font-size="1rem">a</text><text x="16" y="19" font-family="system-ui, -apple-system, 'Segoe UI', Roboto" font-size="0.75rem">₂</text></svg>
+			</button>
+
+			<button type="button" class="toolbar-btn" data-cmd="superscript" title="Superscript (⌘ + ,)" aria-label="Superscript (ctrl/⌘/alt+,)">
+				<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><text x="8" y="13" font-family="system-ui, -apple-system, 'Segoe UI', Roboto" font-size="1rem">a</text><text x="16" y="9" font-family="system-ui, -apple-system, 'Segoe UI', Roboto" font-size="0.75rem">ⁿ</text></svg>
+			</button>
+
+			<button type="button" class="toolbar-btn" data-cmd="clear" title="Clear formatting" aria-label="Clear formatting">✖</button>
+
+			<select id="font-selector" aria-label="Font selector">
+				<option value='"Times New Roman", Times, serif'>Times New Roman</option>
+				<option value='Arial, Helvetica, sans-serif'>Arial</option>
+				<option value='monospace'>Monospace</option>
+			</select>
+		</div>
+	</content>
+</body>
+</html>

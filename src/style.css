@@ -159,6 +159,45 @@ padded[contenteditable="true"] {
 	cursor: pointer;
 }
 
+.bg-picker {
+	width: 7rem;
+	height: 0.8rem;
+	-webkit-appearance: none;
+	appearance: none;
+	background: linear-gradient(90deg, red, orange, yellow, lime, cyan, blue, magenta, red);
+	border-radius: 0.5rem;
+	border: solid 0.15rem var(--fg);
+	cursor: pointer;
+	padding: 0;
+}
+
+.bg-picker::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 1.5rem;
+	height: 1.5rem;
+	border-radius: 50%;
+	border: solid 0.12rem var(--fg);
+	background: white;
+	box-shadow: 0 0 0 0.15rem rgba(0,0,0,0.2);
+}
+
+.bg-picker:focus { outline: none; box-shadow: 0 0 0 3px rgba(255,255,255,0.03) inset; }
+
+.bg-toggle {
+	background: transparent;
+	border: 1px solid var(--fg);
+	color: var(--fg);
+	padding: 0.25rem 0.45rem;
+	border-radius: 0.35rem;
+	margin-left: 0.25rem;
+	cursor: pointer;
+	font-size: 0.85rem;
+	height: 2rem;
+}
+
+.bg-toggle[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+
 .doc-list {
 	display: flex;
 	flex-direction: column;
@@ -264,7 +303,7 @@ padded[contenteditable="true"] {
 	align-items: center;
 	border-top-right-radius: 0.5rem;
 	border-top-left-radius: 0.5rem;
-	background: rgb(0, 0, 0);
+	background-color: color-mix(in srgb, var(--bg) 90%, black 10%);
 	box-shadow: 0 0 1rem black;
 	z-index: 5;
 	user-select: none !important;

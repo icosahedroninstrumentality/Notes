@@ -4,6 +4,8 @@ import { createToolbar, updateToolbarState, ensureCaretVisible, setupEditor } fr
 import { escapeHtml } from './utils/html';
 import type { Doc } from './types';
 
+import { BG_KEY, BG_DISABLED_KEY, loadBgFromStorage, saveBgToStorage, loadBgDisabledFromStorage, saveBgDisabledToStorage } from './store';
+
 let docs: Record<string, Doc> = {};
 let currentId: string | null = null;
 let lastKnownSaveTime = 0;
@@ -337,6 +339,137 @@ function initEditor() {
 	if (!padded) return;
 	const sidebar = document.querySelector('sidebar');
 	if (!sidebar) return;
+
+	// Background hue slider (static UI in the sidebar header). Brightness (lightness) is fixed at 10%.
+	const root = document.documentElement;
+	const bgPicker = sidebar.querySelector('#bg-picker') as HTMLInputElement | null;
+	const bgToggle = sidebar.querySelector('#bg-toggle') as HTMLButtonElement | null;
+	const savedBg = loadBgFromStorage();
+	const savedDisabled = loadBgDisabledFromStorage();
+	if (savedBg && !savedDisabled) root.style.setProperty('--bg', savedBg);
+
+	function hexToRgb(hex: string) {
+		if (!hex) return null;
+		hex = hex.replace('#', '');
+		if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+		if (hex.length !== 6) return null;
+		return {
+			r: parseInt(hex.slice(0, 2), 16),
+			g: parseInt(hex.slice(2, 4), 16),
+			b: parseInt(hex.slice(4, 6), 16)
+		};
+	}
+
+	function rgbToHsl(r: number, g: number, b: number) {
+		r /= 255; g /= 255; b /= 255;
+		const max = Math.max(r, g, b), min = Math.min(r, g, b);
+		let h = 0, s = 0, l = (max + min) / 2;
+		if (max !== min) {
+			const d = max - min;
+			s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+			switch (max) {
+				case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+				case g: h = (b - r) / d + 2; break;
+				case b: h = (r - g) / d + 4; break;
+			}
+			h *= 60;
+		}
+		return { h, s: s * 100, l: l * 100 };
+	}
+
+	function saveBgColor(color: string) {
+		saveBgToStorage(color);
+	}
+
+	let disabled = !!savedDisabled;
+
+	function setHue(h: number) {
+		const color = `hsl(${h}, 100%, 10%)`;
+		saveBgColor(color);
+		if (!disabled) {
+			root.style.setProperty('--bg', color);
+		}
+	}
+
+	// initialize slider position from saved value (supports hsl(...) or hex)
+	let initHue = 0;
+	if (savedBg) {
+		const m = savedBg.match(/hsl\s*\(\s*(\d+(?:\.\d+)?)/i);
+		if (m) {
+			initHue = Math.round(Number(m[1]));
+		} else {
+			const rgb = hexToRgb(savedBg);
+			if (rgb) {
+				const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+				initHue = Math.round(hsl.h);
+			}
+		}
+	}
+
+	if (bgPicker) {
+		bgPicker.value = String(initHue);
+		bgPicker.disabled = disabled; 
+		if (bgToggle) {
+			bgToggle.setAttribute('aria-pressed', !disabled ? 'true' : 'false');
+			bgToggle.innerText = disabled ? 'Off' : 'On';
+			bgToggle.addEventListener('click', () => {
+				disabled = !disabled;
+				bgToggle.setAttribute('aria-pressed', !disabled ? 'true' : 'false');
+				bgToggle.innerText = disabled ? 'Off' : 'On';
+				bgPicker.disabled = disabled;
+				saveBgDisabledToStorage(disabled);
+				if (disabled) {
+					root.style.setProperty('--bg', 'black');
+				} else {
+					// restore from saved color or fall back
+					const restore = loadBgFromStorage() || 'hsl(0, 0%, 10%)';
+					root.style.setProperty('--bg', restore);
+				}
+			});
+		}
+
+		bgPicker.addEventListener('input', (e) => {
+			const h = Number((e.target as HTMLInputElement).value);
+			setHue(h);
+		});
+	}
+
+	// react to storage changes from other tabs/windows (sync hue and disabled state)
+	window.addEventListener('storage', (e) => {
+		if (e.key === BG_KEY) {
+			const val = e.newValue;
+			if (val) {
+				if (!disabled) root.style.setProperty('--bg', val);
+				const picker = document.getElementById('bg-picker') as HTMLInputElement | null;
+				if (picker) {
+					const m = String(val).match(/hsl\s*\(\s*(\d+(?:\.\d+)?)/i);
+					let h = 0;
+					if (m) h = Math.round(Number(m[1]));
+					else {
+						const rgb = hexToRgb(String(val));
+						if (rgb) h = Math.round(rgbToHsl(rgb.r, rgb.g, rgb.b).h);
+					}
+					picker.value = String(h);
+				}
+
+			}
+		} else if (e.key === BG_DISABLED_KEY) {
+			const v = e.newValue === '1';
+			disabled = v;
+			if (disabled) {
+				root.style.setProperty('--bg', 'hsl(0, 0%, 10%)');
+				const picker = document.getElementById('bg-picker') as HTMLInputElement | null;
+				if (picker) picker.disabled = true;
+				if (bgToggle) { bgToggle.setAttribute('aria-pressed', 'true'); bgToggle.textContent = 'On'; }
+			} else {
+				const restore = loadBgFromStorage() || 'hsl(0, 0%, 10%)';
+				root.style.setProperty('--bg', restore);
+				const picker = document.getElementById('bg-picker') as HTMLInputElement | null;
+				if (picker) picker.disabled = false;
+				if (bgToggle) { bgToggle.setAttribute('aria-pressed', 'false'); bgToggle.textContent = 'Off'; }
+			}
+		}
+	});
 
 	// add toolbar (we don't need to reference the return value here)
 	createToolbar(padded, {

@@ -4,7 +4,18 @@ export const DOCS_KEY = 'notes:documents';
 export const CURRENT_KEY = 'notes:current';
 export const POLL_MS = 1000;
 
+// Persistent background color key (hex string, e.g. "#000000")
+export const BG_KEY = 'notes:background';
+// Disabled flag for background color (stored as '1' or '0')
+export const BG_DISABLED_KEY = 'notes:background:disabled';
+
 export function now() { return Date.now(); }
+
+export function loadBgFromStorage(): string | null { return localStorage.getItem(BG_KEY); }
+export function saveBgToStorage(bg: string) { localStorage.setItem(BG_KEY, bg); }
+
+export function loadBgDisabledFromStorage(): boolean { return localStorage.getItem(BG_DISABLED_KEY) === '1'; }
+export function saveBgDisabledToStorage(v: boolean) { localStorage.setItem(BG_DISABLED_KEY, v ? '1' : '0'); }
 
 export function loadDocsFromStorage(): Record<string, Doc> {
 	const raw = localStorage.getItem(DOCS_KEY);

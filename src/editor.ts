@@ -20,7 +20,20 @@ export function ensureCaretVisible(padded: HTMLElement) {
 	}
 }
 
-// Update toolbar button active states
+// Utility: convert rgb() or rgba() string to hex if possible
+function rgbStringToHex(s: string): string | null {
+	if (!s) return null;
+	// already hex
+	if (s.startsWith('#')) return s;
+	const m = s.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+	if (!m) return null;
+	const r = parseInt(m[1], 10);
+	const g = parseInt(m[2], 10);
+	const b = parseInt(m[3], 10);
+	return "#" + [r,g,b].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+
+// Update toolbar button active states and sync color picker
 export function updateToolbarState(toolbar: Element | null) {
 	if (!toolbar) return;
 	for (const el of Array.from(toolbar.querySelectorAll('.toolbar-btn'))) {
@@ -39,7 +52,132 @@ export function updateToolbarState(toolbar: Element | null) {
 		}
 		if (active) btn.classList.add('active'); else btn.classList.remove('active');
 	}
+
+	// sync text color picker value with the current selection (if available)
+	try {
+		const colorInput = toolbar.querySelector('#text-color-picker') as HTMLInputElement | null;
+		if (colorInput) {
+			const val = document.queryCommandValue('foreColor') || document.queryCommandValue('color') || '';
+			const hex = rgbStringToHex(val) || (val && val.startsWith('#') ? val : '');
+			if (hex) colorInput.value = hex as string;
+		}
+	} catch (e) {
+		// ignore
+	}
 }
+
+// Apply text color to current selection
+export function setTextColor(color: string) {
+	document.execCommand('foreColor', false, color);
+}
+
+// Saved colors persistence & UI
+const SAVED_COLORS_KEY = 'savedTextColors';
+function loadSavedColors(): string[] {
+	try {
+		const raw = localStorage.getItem(SAVED_COLORS_KEY);
+		if (!raw) return [];
+		return JSON.parse(raw) as string[];
+	} catch (e) {
+		return [];
+	}
+}
+function saveSavedColors(cols: string[]) {
+	try { localStorage.setItem(SAVED_COLORS_KEY, JSON.stringify(cols)); } catch (e) { /* ignore */ }
+}
+
+function renderSavedColors(toolbar: Element | null) {
+	if (!toolbar) return;
+	const container = toolbar.querySelector('#saved-colors') as HTMLElement | null;
+	if (!container) return;
+	container.innerHTML = '';
+	const cols = loadSavedColors();
+	const currentColor = (() => {
+		try { return document.queryCommandValue('foreColor') || document.queryCommandValue('color') || ''; } catch (e) { return ''; }
+	})();
+	for (const c of cols) {
+		const btn = document.createElement('button');
+		btn.className = 'color-swatch';
+		btn.setAttribute('type', 'button');
+		btn.dataset.color = c;
+		btn.style.background = c;
+		btn.title = c;
+		if (c.toLowerCase() === (currentColor || '').toLowerCase() || c.toLowerCase() === rgbStringToHex(currentColor || '')?.toLowerCase()) {
+			btn.classList.add('active');
+		}
+		// click applies color
+		btn.addEventListener('click', () => {
+			setTextColor(c);
+			updateToolbarState(toolbar);
+		});
+		// right-click shows remove context menu
+		btn.addEventListener('contextmenu', (e: MouseEvent) => {
+			e.preventDefault();
+			showContextMenu(e.pageX, e.pageY, c);
+		});
+		// double-click removes color (legacy behavior)
+		btn.addEventListener('dblclick', () => {
+			if (!confirm(`Remove color ${c}?`)) return;
+			const remaining = loadSavedColors().filter(x => x !== c);
+			saveSavedColors(remaining);
+			renderSavedColors(toolbar);
+		});
+		container.appendChild(btn);
+	}
+}
+
+// Context menu for color swatches
+let contextMenuEl: HTMLElement | null = null;
+let onRemoveSavedColor: ((color: string) => void) | null = null;
+
+function ensureContextMenu() {
+	if (contextMenuEl) return;
+	contextMenuEl = document.createElement('div');
+	contextMenuEl.className = 'swatch-context-menu';
+	contextMenuEl.style.display = 'none';
+	contextMenuEl.innerHTML = '<button type="button" class="ctx-remove">Remove color</button>';
+	document.body.appendChild(contextMenuEl);
+
+	// click handler inside menu
+	contextMenuEl.addEventListener('click', (e) => {
+		const btn = e.target as HTMLElement;
+		if (btn.classList.contains('ctx-remove')) {
+			const color = contextMenuEl!.dataset.color;
+			if (color && onRemoveSavedColor) onRemoveSavedColor(color);
+			hideContextMenu();
+		}
+	});
+
+	// hide on outside click or escape
+	document.addEventListener('click', (e) => { if (contextMenuEl && (e.target as Element).closest('.swatch-context-menu') == null) hideContextMenu(); });
+	document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideContextMenu(); });
+	window.addEventListener('resize', hideContextMenu);
+	window.addEventListener('scroll', hideContextMenu, true);
+}
+
+function showContextMenu(x: number, y: number, color: string) {
+	ensureContextMenu();
+	if (!contextMenuEl) return;
+	contextMenuEl.style.display = 'block';
+	contextMenuEl.dataset.color = color;
+	// position and clamp to viewport
+	const rect = contextMenuEl.getBoundingClientRect();
+	const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+	const vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
+	let left = x;
+	let top = y;
+	if (left + rect.width > vw) left = Math.max(8, vw - rect.width - 8);
+	if (top + rect.height > vh) top = Math.max(8, vh - rect.height - 8);
+	contextMenuEl.style.left = left + 'px';
+	contextMenuEl.style.top = top + 'px';
+}
+
+function hideContextMenu() {
+	if (!contextMenuEl) return;
+	contextMenuEl.style.display = 'none';
+	delete contextMenuEl.dataset.color;
+}
+
 
 // Create the toolbar and wire up handlers. We accept callbacks to avoid tight coupling with app state.
 export function createToolbar(
@@ -87,6 +225,59 @@ export function createToolbar(
 			handlers.saveCurrentDoc();
 		});
 	}
+
+	// Text color picker
+	const textColor = document.getElementById('text-color-picker') as HTMLInputElement | null;
+	if (textColor) {
+		// apply color as the user selects it
+		textColor.addEventListener('input', () => {
+			padded.focus();
+			document.execCommand('foreColor', false, textColor.value);
+			handlers.setModified(true);
+			updateToolbarState(toolbar);
+			// highlight saved swatch if present
+			renderSavedColors(toolbar);
+		});
+		// apply color on commit (useful for keyboard/assistive tools)
+		textColor.addEventListener('change', () => {
+			padded.focus();
+			document.execCommand('foreColor', false, textColor.value);
+			handlers.setModified(true);
+			handlers.saveCurrentDoc();
+			renderSavedColors(toolbar);
+		});
+	}
+
+	// Save color button
+	const saveBtn = document.getElementById('save-color') as HTMLButtonElement | null;
+	if (saveBtn) {
+		saveBtn.addEventListener('click', () => {
+			const color = (document.getElementById('text-color-picker') as HTMLInputElement | null)?.value;
+			if (!color) return;
+			const cols = loadSavedColors();
+			if (!cols.includes(color)) {
+				cols.unshift(color);
+				// keep a small list
+				if (cols.length > 12) cols.length = 12;
+				saveSavedColors(cols);
+				renderSavedColors(toolbar);
+				handlers.saveCurrentDoc();
+			}
+		});
+	}
+
+	// render saved colors initially
+	renderSavedColors(toolbar);
+
+	// hook up remove callback for context menu
+	onRemoveSavedColor = (color: string) => {
+		if (!confirm(`Remove color ${color}?`)) return;
+		const remaining = loadSavedColors().filter(x => x !== color);
+		saveSavedColors(remaining);
+		renderSavedColors(toolbar);
+		handlers.saveCurrentDoc();
+		hideContextMenu();
+	};
 
 	// update active state when selection changes
 	document.addEventListener('selectionchange', () => updateToolbarState(toolbar));

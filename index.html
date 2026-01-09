@@ -56,6 +56,12 @@
 
 			<button type="button" class="toolbar-btn" data-cmd="clear" title="Clear formatting" aria-label="Clear formatting">✖</button>
 
+			<div class="color-picker-wrap">
+				<input id="text-color-picker" type="color" title="Text color" aria-label="Text color" />
+				<button id="save-color" type="button" class="toolbar-btn" title="Save color" aria-label="Save color">+</button>
+				<div id="saved-colors" class="saved-colors" role="list" aria-label="Saved text colors"></div>
+			</div>
+
 			<select id="font-selector" aria-label="Font selector">
 				<option value='"Times New Roman", Times, serif'>Times New Roman</option>
 				<option value='Arial, Helvetica, sans-serif'>Arial</option>

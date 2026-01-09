@@ -16,9 +16,9 @@ export function sanitizeHTML(html: string) {
 	})();
 
 	const whitelist = new Set([
-		'P','BR','B','STRONG','I','EM','SUB','SUP','H1','H2','H3','H4','H5','H6','UL','OL','LI','A','SPAN','DIV'
+		'P','BR','B','STRONG','I','EM','SUB','SUP','H1','H2','H3','H4','H5','H6','UL','OL','LI','A','SPAN','DIV','IMG'
 	]);
-	const allowedAttrs: Record<string, string[]> = { A: ['href', 'title', 'target', 'rel'] };
+	const allowedAttrs: Record<string, string[]> = { A: ['href', 'title', 'target', 'rel'], IMG: ['src', 'alt', 'title'] };
 
 	function walk(node: Node) {
 		if (node.nodeType === Node.ELEMENT_NODE) {

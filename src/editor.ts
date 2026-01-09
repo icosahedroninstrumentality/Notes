@@ -319,7 +319,8 @@ export function createToolbar(
 }
 
 import type { Doc } from './types';
-import { loadDocsFromStorage, checkForExternalUpdates, DOCS_KEY, CURRENT_KEY, POLL_MS } from './store';
+import { loadDocsFromStorage, checkForExternalUpdates, DOCS_KEY, CURRENT_KEY, POLL_MS, saveImageToStorage } from './store';
+import { convertMarkdownToHtml } from './utils/markdown';
 
 export function setupEditor(options: {
 	padded: HTMLElement,
@@ -420,11 +421,57 @@ export function setupEditor(options: {
 		}
 	});
 
-	// sanitize pasted content and insert clean HTML
+	// sanitize pasted content, support markdown, and handle pasted images
 	padded.addEventListener('paste', (e: ClipboardEvent) => {
 		e.preventDefault();
 		const cb = (e.clipboardData ?? (window as any).clipboardData) as DataTransfer | null;
 		if (!cb) return;
+
+		// First, handle image files from clipboard (e.g., screenshots)
+		const items = cb.items ? Array.from(cb.items) as DataTransferItem[] : [];
+		const imageItems = items.filter(it => it.kind === 'file' && it.type.startsWith('image/'));
+		if (imageItems.length) {
+			const promises = imageItems.map(it => {
+				const file = it.getAsFile();
+				if (!file) return Promise.resolve(null);
+				return new Promise<{id: string, data: string} | null>((resolve) => {
+					const reader = new FileReader();
+					reader.onload = () => {
+						const dataUrl = String(reader.result || '');
+						const id = 'img-' + Date.now() + '-' + Math.random().toString(36).slice(2,8);
+						saveImageToStorage(id, dataUrl);
+						resolve({ id, data: dataUrl });
+					};
+					reader.onerror = () => resolve(null);
+					reader.readAsDataURL(file);
+				});
+			});
+
+			Promise.all(promises).then(results => {
+				for (const r of results) {
+					if (!r) continue;
+					// insert placeholder and then update the inserted node to display the data URL
+					try {
+						document.execCommand('insertHTML', false, `<img src=\"notes:image:${r.id}\" alt=\"image\">`);
+						// find the inserted placeholder image and attach data attributes
+						const imgs = padded.querySelectorAll(`img[src=\"notes:image:${r.id}\"]`);
+						if (imgs.length) {
+							const img = imgs[imgs.length - 1] as HTMLImageElement;
+							img.setAttribute('data-image-id', r.id);
+							img.src = r.data; // use data URL for display
+						}
+					} catch (err) {
+						document.execCommand('insertText', false, '[image]');
+					}
+					options.setModified(true);
+				}
+				window.setTimeout(() => options.saveCurrentDoc(), 0);
+
+			});
+			return;
+		}
+
+		// fallback: try HTML, otherwise text which may be markdown
 		const html = cb.getData('text/html');
 		const text = cb.getData('text/plain');
 		let content = '';
@@ -436,10 +483,17 @@ export function setupEditor(options: {
 				content = parts.map(p => `<p>${options.escapeHtml(p)}</p>`).join('');
 			}
 		} else if (text) {
-			// preserve line breaks as paragraphs
-			const parts = text.replace(/\r\n/g, '\n').split('\n');
-			content = parts.map(p => `<p>${options.escapeHtml(p)}</p>`).join('');
+			// detect markdown-like content and convert to HTML when applicable
+			const looksLikeMarkdown = /(^#{1,6}\s)|(^[-*]\s+)|(^\d+\.\s+)|`|\*\*|__|\[.+\]\(.+\)|!\[.+\]\(.+\)|^```/m;
+			if (looksLikeMarkdown.test(text)) {
+				content = convertMarkdownToHtml(text);
+				content = options.sanitizeHTML(content);
+			} else {
+				const parts = text.replace(/\r\n/g, '\n').split('\n');
+				content = parts.map(p => `<p>${options.escapeHtml(p)}</p>`).join('');
+			}
 		}
+
 		if (content) {
 			try {
 				document.execCommand('insertHTML', false, content);

@@ -1,4 +1,4 @@
-import { now, saveDocsToStorage, CURRENT_KEY } from './store';
+import { now, saveDocsToStorage, CURRENT_KEY, loadImagesFromStorage } from './store';
 import { sanitizeHTML } from './utils/sanitize';
 import { createToolbar, updateToolbarState, ensureCaretVisible, setupEditor } from './editor';
 import { escapeHtml } from './utils/html';
@@ -175,6 +175,21 @@ function selectDoc(id: string) {
 	if (!doc) return;
 	currentId = id;
 	padded.innerHTML = doc.content;
+	// resolve notes:image:{id} placeholders to actual data URLs for display (do not mutate stored content)
+	try {
+		const imagesMap = loadImagesFromStorage();
+		for (const img of Array.from(padded.querySelectorAll('img')) as HTMLImageElement[]) {
+			const src = img.getAttribute('src') || '';
+			if (src.startsWith('notes:image:')) {
+				const id = src.slice('notes:image:'.length);
+				const data = imagesMap[id];
+				if (data) {
+					img.setAttribute('data-image-id', id);
+					img.src = data; // display data URL, but keep placeholder in stored content
+				}
+			}
+		}
+	} catch (e) { /* ignore image resolution errors */ }
 	// apply per-document font and enforce it throughout the content
 	enforceFont(padded, doc.font || 'Arial, Helvetica, sans-serif');
 	lastKnownSaveTime = doc.lastSaved;
@@ -227,6 +242,23 @@ function saveCurrentDoc() {
 	if (!currentId) return;
 	const padded = document.querySelector('padded') as HTMLElement | null;
 	if (!padded) return;
+
+	// Before saving, ensure any displayed data-URLs are replaced with notes:image:{id} placeholders
+	const imagesMap = loadImagesFromStorage();
+	const restored: {img: HTMLImageElement, id: string, prevSrc: string}[] = [];
+	for (const img of Array.from(padded.querySelectorAll('img')) as HTMLImageElement[]) {
+		let id = img.getAttribute('data-image-id') || '';
+		const src = img.getAttribute('src') || '';
+		if (!id && src.startsWith('data:')) {
+			// try to find existing id for this data URL
+			id = Object.keys(imagesMap).find(k => imagesMap[k] === src) || '';
+		}
+		if (id) {
+			restored.push({ img, id, prevSrc: src });
+			img.setAttribute('src', `notes:image:${id}`);
+		}
+	}
+
 	docs[currentId].content = padded.innerHTML;
 	docs[currentId].lastSaved = now();
 	lastKnownSaveTime = docs[currentId].lastSaved;
@@ -234,6 +266,12 @@ function saveCurrentDoc() {
 	setModified(false);
 	renderSidebar();
 	if (currentId) updateHeader(docs[currentId]);
+
+	// restore the data URLs back into the DOM so the editor keeps showing images
+	for (const r of restored) {
+		const data = imagesMap[r.id];
+		if (data) r.img.src = data; else r.img.setAttribute('src', r.prevSrc);
+	}
 }
 
 function clearAllFormatting(padded: HTMLElement) {

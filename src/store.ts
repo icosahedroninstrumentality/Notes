@@ -3,6 +3,7 @@ import type { Doc } from './types';
 export const DOCS_KEY = 'notes:documents';
 export const CURRENT_KEY = 'notes:current';
 export const POLL_MS = 1000;
+export const IMAGES_KEY = 'notes:images';
 
 // Persistent background color key (hex string, e.g. "#000000")
 export const BG_KEY = 'notes:background';
@@ -17,12 +18,50 @@ export function saveBgToStorage(bg: string) { localStorage.setItem(BG_KEY, bg); 
 export function loadBgDisabledFromStorage(): boolean { return localStorage.getItem(BG_DISABLED_KEY) === '1'; }
 export function saveBgDisabledToStorage(v: boolean) { localStorage.setItem(BG_DISABLED_KEY, v ? '1' : '0'); }
 
+// Images storage helpers - store images as data URLs in a map saved to localStorage
+export function loadImagesFromStorage(): Record<string, string> {
+	try {
+		const raw = localStorage.getItem(IMAGES_KEY);
+		if (!raw) return {};
+		return JSON.parse(raw) as Record<string, string> || {};
+	} catch (e) {
+		console.warn('Failed to parse images from storage', e);
+		return {};
+	}
+}
+
+export function saveImagesToStorage(images: Record<string, string>) {
+	try { localStorage.setItem(IMAGES_KEY, JSON.stringify(images)); } catch (e) { console.warn('Failed to save images to storage', e); }
+}
+
+export function saveImageToStorage(id: string, dataUrl: string) {
+	const imgs = loadImagesFromStorage();
+	imgs[id] = dataUrl;
+	saveImagesToStorage(imgs);
+}
+
+export function getImageFromStorage(id: string): string | undefined {
+	const imgs = loadImagesFromStorage();
+	return imgs[id];
+} 
+
 export function loadDocsFromStorage(): Record<string, Doc> {
 	const raw = localStorage.getItem(DOCS_KEY);
 	if (!raw) return {};
 	try {
-		const parsed = JSON.parse(raw) as Record<string, Doc>;
-		return parsed || {};
+		const parsed = JSON.parse(raw) as Record<string, Doc> || {};
+		// Run migrations if storage version is older than current
+		try {
+			const ver = getStorageVersion();
+			if (ver < CURRENT_STORAGE_VERSION) {
+				const changed = migrateDocsImages(parsed);
+				if (changed) saveDocsToStorage(parsed);
+				setStorageVersion(CURRENT_STORAGE_VERSION);
+			}
+		} catch (e) {
+			console.warn('Migration failed', e);
+		}
+		return parsed;
 	} catch (err) {
 		console.warn('Failed to parse docs from storage', err);
 		return {};
@@ -31,6 +70,49 @@ export function loadDocsFromStorage(): Record<string, Doc> {
 
 export function saveDocsToStorage(docs: Record<string, Doc>) {
 	localStorage.setItem(DOCS_KEY, JSON.stringify(docs));
+}
+
+// Storage schema versioning
+export const STORAGE_VERSION_KEY = 'notes:storage:version';
+export const CURRENT_STORAGE_VERSION = 2;
+
+export function getStorageVersion(): number {
+	const v = localStorage.getItem(STORAGE_VERSION_KEY);
+	if (!v) return 0;
+	const n = parseInt(v, 10);
+	return isNaN(n) ? 0 : n;
+}
+export function setStorageVersion(v: number) { localStorage.setItem(STORAGE_VERSION_KEY, String(v)); }
+
+// Migrate embedded data-URL images from document HTML into the images store
+export function migrateDocsImages(docs: Record<string, Doc>): boolean {
+	const images = loadImagesFromStorage();
+	let changed = false;
+	for (const id of Object.keys(docs)) {
+		const doc = docs[id];
+		if (!doc || !doc.content) continue;
+		const re = /<img[^>]+src=(?:\"|\')(data:[^\"\']+)(?:\"|\')[^>]*>/gi;
+		let m: RegExpExecArray | null;
+		let newContent = doc.content;
+		while ((m = re.exec(doc.content)) !== null) {
+			const dataUrl = m[1];
+			// find existing id for this data URL
+			let existingId = Object.keys(images).find(k => images[k] === dataUrl);
+			if (!existingId) {
+				existingId = 'img-' + Date.now() + '-' + Math.random().toString(36).slice(2,8);
+				images[existingId] = dataUrl;
+			}
+			// replace occurrences of the data URL with placeholder
+			newContent = newContent.split(dataUrl).join(`notes:image:${existingId}`);
+			changed = true;
+		}
+		if (changed && newContent !== doc.content) {
+			doc.content = newContent;
+			doc.lastSaved = now();
+		}
+	}
+	if (changed) saveImagesToStorage(images);
+	return changed;
 }
 
 

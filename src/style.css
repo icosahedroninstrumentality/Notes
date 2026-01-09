@@ -529,3 +529,9 @@ input[type="color"]:focus { outline: 2px solid rgba(255,255,255,0.08); box-shado
 
 	@page { margin: 1in; }
 }
+
+img {
+	max-width: 100% !important;
+	/**/width: 100% !important;
+	min-width: 100% !important;
+}

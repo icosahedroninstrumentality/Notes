@@ -1,4 +1,4 @@
-import { now, saveDocsToStorage, CURRENT_KEY, loadImagesFromStorage, saveDocContent, loadDocContent, removeDocContent } from './store';
+import { now, saveDocsToStorage, CURRENT_KEY, loadImagesFromStorage, saveDocContent, loadDocContent, removeDocContent, removeUnreferencedImages } from './store';
 import { sanitizeHTML } from './utils/sanitize';
 import { createToolbar, updateToolbarState, ensureCaretVisible, setupEditor } from './editor';
 import { escapeHtml } from './utils/html';
@@ -163,6 +163,8 @@ function deleteDoc(id: string) {
 	removeDocContent(id);
 	delete docs[id];
 	saveDocsToStorage(docs);
+	// clean up any images that are now orphaned
+	try { removeUnreferencedImages(docs); } catch (e) { /* ignore */ }
 	if (id === currentId) {
 		const remaining = Object.keys(docs);
 		if (remaining.length) selectDoc(remaining[0]);
@@ -284,6 +286,8 @@ function saveCurrentDoc(opts?: { forceTimestamp?: boolean }) {
 		}
 	}
 	saveDocsToStorage(docs);
+	// garbage collect any images that are no longer referenced
+	try { removeUnreferencedImages(docs); } catch (e) { /* ignore */ }
 	setModified(false);
 	renderSidebar();
 	if (currentId) updateHeader(docs[currentId]);

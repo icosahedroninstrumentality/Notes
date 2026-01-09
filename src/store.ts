@@ -208,6 +208,55 @@ export function migrateImagesMapToPerKey(): boolean {
 	}
 }
 
+// Find all image ids referenced in docs metadata and per-doc content
+export function findReferencedImageIds(docs: Record<string, Doc>): Set<string> {
+	const ids = new Set<string>();
+	const re = /notes:image:([A-Za-z0-9\-_]+)/g;
+	for (const id of Object.keys(docs)) {
+		const doc = docs[id];
+		if (!doc) continue;
+		if (doc.content) {
+			let m: RegExpExecArray | null;
+			while ((m = re.exec(doc.content)) !== null) ids.add(m[1]);
+		}
+	}
+	// scan per-doc content keys
+	try {
+		for (let i = 0; i < localStorage.length; i++) {
+			const key = localStorage.key(i);
+			if (!key) continue;
+			if (!key.startsWith(DOC_DATA_PREFIX)) continue;
+			const val = localStorage.getItem(key);
+			if (!val) continue;
+			let m: RegExpExecArray | null;
+			while ((m = re.exec(val)) !== null) ids.add(m[1]);
+		}
+	} catch (e) {
+		console.warn('Failed to scan per-doc content for image references', e);
+	}
+	return ids;
+}
+
+// Remove any per-image entries that are not referenced by any document
+export function removeUnreferencedImages(docs: Record<string, Doc>): boolean {
+	const referenced = findReferencedImageIds(docs);
+	let removed = false;
+	try {
+		for (let i = 0; i < localStorage.length; i++) {
+			const key = localStorage.key(i);
+			if (!key) continue;
+			if (!key.startsWith(IMAGE_KEY_PREFIX)) continue;
+			const id = key.slice(IMAGE_KEY_PREFIX.length);
+			if (!referenced.has(id)) {
+				localStorage.removeItem(key);
+				removed = true;
+			}
+		}
+	} catch (e) {
+		console.warn('Failed to remove unreferenced images', e);
+	}
+	return removed;
+}
 
 export function checkForExternalUpdates(
 	docs: Record<string, Doc>,

@@ -179,9 +179,9 @@ function selectDoc(id: string) {
 	// if there's an active doc, save it and unload its content from memory
 	if (currentId && currentId !== id) {
 		saveCurrentDoc();
-		if (docs[currentId]) delete docs[currentId].content;
+		if (docs[currentId]) docs[currentId].content = '';
 	}
-	currentId = id;
+	currentId = id; 
 	// load content for selected doc lazily
 	const loaded = loadDocContent(id) || '<p></p>';
 	padded.innerHTML = loaded;

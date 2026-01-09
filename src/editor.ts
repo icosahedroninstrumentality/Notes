@@ -2,14 +2,41 @@
 export function ensureCaretVisible(padded: HTMLElement) {
 	const sel = window.getSelection();
 	if (!sel || !sel.rangeCount) return;
-	const range = sel.getRangeAt(0).cloneRange();
-	range.collapse(false);
-	let rect = range.getBoundingClientRect();
-	// If rect is empty (some browsers), use last child fallback
+	// Use the real selection range for insertion fallback if needed, but
+	// use a cloned, collapsed range to measure first to avoid mutating it.
+	const realRange = sel.getRangeAt(0);
+	const measureRange = realRange.cloneRange();
+	measureRange.collapse(false);
+	let rect = measureRange.getBoundingClientRect();
+	// If rect is empty (some browsers), try the caret's container, and
+	// as a last resort insert a tiny temporary marker at the caret and
+	// measure that. This avoids falling back to padded.lastElementChild
+	// which can jump the view to the bottom.
 	if (!rect || (rect.top === 0 && rect.bottom === 0)) {
-		const last = padded.lastElementChild as HTMLElement | null;
-		if (last) rect = last.getBoundingClientRect();
-		else return;
+		// prefer nearest element containing the caret
+		const start = realRange.startContainer;
+		let el: HTMLElement | null = null;
+		if (start.nodeType === Node.ELEMENT_NODE) el = start as HTMLElement;
+		else if ((start as Node).parentElement) el = (start as Node).parentElement;
+		if (el && padded.contains(el)) {
+			rect = el.getBoundingClientRect();
+		} else {
+			// insert a temporary zero-size marker at the caret and measure it
+			const marker = document.createElement('span');
+			marker.style.cssText = 'display:inline-block;width:0px;height:0px;overflow:hidden;';
+			marker.setAttribute('aria-hidden', 'true');
+			// insert marker using the real range
+			const insertRange = realRange.cloneRange();
+			insertRange.collapse(false);
+			insertRange.insertNode(marker);
+			rect = marker.getBoundingClientRect();
+			// clean up marker
+			marker.parentNode?.removeChild(marker);
+			// restore selection (removeAllRanges/addRange preserves caret)
+			sel.removeAllRanges();
+			sel.addRange(realRange);
+		}
+		if (!rect || (rect.top === 0 && rect.bottom === 0)) return;
 	}
 	const paddedRect = padded.getBoundingClientRect();
 	const offset = 12;

@@ -1,4 +1,4 @@
-import { now, saveDocsToStorage, CURRENT_KEY, loadImagesFromStorage } from './store';
+import { now, saveDocsToStorage, CURRENT_KEY, loadImagesFromStorage, saveDocContent, loadDocContent, removeDocContent } from './store';
 import { sanitizeHTML } from './utils/sanitize';
 import { createToolbar, updateToolbarState, ensureCaretVisible, setupEditor } from './editor';
 import { escapeHtml } from './utils/html';
@@ -147,17 +147,20 @@ function createNewDoc(title = 'New note') {
 	docs[id] = {
 		id,
 		title,
-		content: '<p></p>',
+		content: '',
 		lastSaved: now(),
 		font: 'Arial, Helvetica, sans-serif',
 	};
+	// initialize per-doc content separately so we don't keep content in memory for closed docs
+	saveDocContent(id, '<p></p>');
 	saveDocsToStorage(docs);
 	renderSidebar();
 	selectDoc(id);
-}
+} 
 
 function deleteDoc(id: string) {
 	if (!docs[id]) return;
+	removeDocContent(id);
 	delete docs[id];
 	saveDocsToStorage(docs);
 	if (id === currentId) {
@@ -166,15 +169,22 @@ function deleteDoc(id: string) {
 		else createNewDoc();
 	}
 	renderSidebar();
-}
+} 
 
 function selectDoc(id: string) {
 	const padded = document.querySelector('padded') as HTMLElement | null;
 	if (!padded) return;
 	const doc = docs[id];
 	if (!doc) return;
+	// if there's an active doc, save it and unload its content from memory
+	if (currentId && currentId !== id) {
+		saveCurrentDoc();
+		if (docs[currentId]) delete docs[currentId].content;
+	}
 	currentId = id;
-	padded.innerHTML = doc.content;
+	// load content for selected doc lazily
+	const loaded = loadDocContent(id) || '<p></p>';
+	padded.innerHTML = loaded;
 	// resolve notes:image:{id} placeholders to actual data URLs for display (do not mutate stored content)
 	try {
 		const imagesMap = loadImagesFromStorage();
@@ -232,13 +242,13 @@ function selectDoc(id: string) {
 	window.setTimeout(() => ensureCaretVisible(padded), 0);
 
 	updateHeader(doc);
-}
+} 
 
 function setModified(v: boolean) {
 	modified = v;
 }
 
-function saveCurrentDoc() {
+function saveCurrentDoc(opts?: { forceTimestamp?: boolean }) {
 	if (!currentId) return;
 	const padded = document.querySelector('padded') as HTMLElement | null;
 	if (!padded) return;
@@ -259,9 +269,20 @@ function saveCurrentDoc() {
 		}
 	}
 
-	docs[currentId].content = padded.innerHTML;
-	docs[currentId].lastSaved = now();
-	lastKnownSaveTime = docs[currentId].lastSaved;
+	// Save content to per-doc storage (placeholders were applied above)
+	// Save content to per-doc storage (placeholders were applied above)
+	saveDocContent(currentId, padded.innerHTML);
+	// Update timestamp only if forced or if the document had unsaved modifications
+	if (opts && opts.forceTimestamp) {
+		docs[currentId].lastSaved = now();
+		lastKnownSaveTime = docs[currentId].lastSaved;
+	} else {
+		// update timestamp only when modified flag is set
+		if (modified) {
+			docs[currentId].lastSaved = now();
+			lastKnownSaveTime = docs[currentId].lastSaved;
+		}
+	}
 	saveDocsToStorage(docs);
 	setModified(false);
 	renderSidebar();

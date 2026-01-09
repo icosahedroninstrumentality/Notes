@@ -210,7 +210,7 @@ function hideContextMenu() {
 export function createToolbar(
 	padded: HTMLElement,
 	handlers: {
-		saveCurrentDoc: () => void,
+		saveCurrentDoc: (opts?: { forceTimestamp?: boolean }) => void,
 		setModified: (v: boolean) => void,
 		enforceFont: (p: HTMLElement, font: string) => void,
 		getCurrentDocumentFont: () => string,
@@ -330,7 +330,7 @@ export function setupEditor(options: {
 	setCurrentId: (id: string | null) => void,
 	getLastKnownSaveTime: () => number,
 	setLastKnownSaveTime: (t: number) => void,
-	saveCurrentDoc: () => void,
+	saveCurrentDoc: (opts?: { forceTimestamp?: boolean }) => void,
 	setModified: (v: boolean) => void,
 	updateToolbarState: (toolbar: Element | null) => void,
 	sanitizeHTML: (html: string) => string,
@@ -348,7 +348,7 @@ export function setupEditor(options: {
 		if (saveTimer) clearTimeout(saveTimer);
 		saveTimer = window.setTimeout(() => {
 			saveTimer = null;
-			options.saveCurrentDoc();
+			options.saveCurrentDoc({forceTimestamp:true});
 		}, 250);
 	});
 
@@ -417,7 +417,7 @@ export function setupEditor(options: {
 
 		if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
 			e.preventDefault();
-			options.saveCurrentDoc();
+			options.saveCurrentDoc({ forceTimestamp: true });
 		}
 	});
 
@@ -465,7 +465,7 @@ export function setupEditor(options: {
 					}
 					options.setModified(true);
 				}
-				window.setTimeout(() => options.saveCurrentDoc(), 0);
+				window.setTimeout(() => options.saveCurrentDoc({forceTimestamp:true}), 0);
 
 			});
 			return;
@@ -503,13 +503,13 @@ export function setupEditor(options: {
 			// enforce document font across pasted content
 			options.setModified(true);
 			// ensure save happens promptly
-			window.setTimeout(() => options.saveCurrentDoc(), 0);
+			window.setTimeout(() => options.saveCurrentDoc({forceTimestamp:true}), 0);
 			// ensure caret visibility
 			window.setTimeout(() => ensureCaretVisible(padded), 0);
 		} else if (text) {
 			document.execCommand('insertText', false, text);
 			options.setModified(true);
-			window.setTimeout(() => options.saveCurrentDoc(), 0);
+			window.setTimeout(() => options.saveCurrentDoc({forceTimestamp:true}), 0);
 		}
 	});
 

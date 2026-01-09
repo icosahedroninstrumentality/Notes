@@ -43,21 +43,43 @@ export function saveImageToStorage(id: string, dataUrl: string) {
 export function getImageFromStorage(id: string): string | undefined {
 	const imgs = loadImagesFromStorage();
 	return imgs[id];
-} 
+}
+
+// Per-doc content storage (store content separately so we can lazy-load/unload)
+export const DOC_DATA_PREFIX = 'notes:doc:';
+
+export function saveDocContent(id: string, content: string) {
+	try { localStorage.setItem(DOC_DATA_PREFIX + id, content); } catch (e) { console.warn('Failed to save doc content', e); }
+}
+
+export function loadDocContent(id: string): string | null {
+	try { return localStorage.getItem(DOC_DATA_PREFIX + id); } catch (e) { console.warn('Failed to load doc content', e); return null; }
+}
+
+export function removeDocContent(id: string) {
+	try { localStorage.removeItem(DOC_DATA_PREFIX + id); } catch (e) { console.warn('Failed to remove doc content', e); }
+}
+
+
 
 export function loadDocsFromStorage(): Record<string, Doc> {
 	const raw = localStorage.getItem(DOCS_KEY);
 	if (!raw) return {};
 	try {
 		const parsed = JSON.parse(raw) as Record<string, Doc> || {};
-		// Run migrations if storage version is older than current
+		// Run migrations in order: images (v2), then split docs (v3)
 		try {
 			const ver = getStorageVersion();
-			if (ver < CURRENT_STORAGE_VERSION) {
+			if (ver < 2) {
 				const changed = migrateDocsImages(parsed);
 				if (changed) saveDocsToStorage(parsed);
-				setStorageVersion(CURRENT_STORAGE_VERSION);
 			}
+			if (ver < 3) {
+				const changed2 = migrateSplitDocs(parsed);
+				if (changed2) saveDocsToStorage(parsed);
+				// note: do not migrate images again here
+			}
+			if (ver < CURRENT_STORAGE_VERSION) setStorageVersion(CURRENT_STORAGE_VERSION);
 		} catch (e) {
 			console.warn('Migration failed', e);
 		}
@@ -74,7 +96,7 @@ export function saveDocsToStorage(docs: Record<string, Doc>) {
 
 // Storage schema versioning
 export const STORAGE_VERSION_KEY = 'notes:storage:version';
-export const CURRENT_STORAGE_VERSION = 2;
+export const CURRENT_STORAGE_VERSION = 3;
 
 export function getStorageVersion(): number {
 	const v = localStorage.getItem(STORAGE_VERSION_KEY);
@@ -112,6 +134,22 @@ export function migrateDocsImages(docs: Record<string, Doc>): boolean {
 		}
 	}
 	if (changed) saveImagesToStorage(images);
+	return changed;
+}
+
+// Migrate document content into per-doc storage keys (notes:doc:{id}) and clear inline content from docs metadata
+export function migrateSplitDocs(docs: Record<string, Doc>): boolean {
+	let changed = false;
+	for (const id of Object.keys(docs)) {
+		const doc = docs[id];
+		if (!doc) continue;
+		if (doc.content && doc.content.trim()) {
+			saveDocContent(id, doc.content);
+			doc.content = '';
+			doc.lastSaved = now();
+			changed = true;
+		}
+	}
 	return changed;
 }
 

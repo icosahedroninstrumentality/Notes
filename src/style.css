@@ -134,6 +134,13 @@ padded[contenteditable="true"] {
 	min-height: 60vh;
 }
 
+/* Margined paragraphs: paragraphs created with Enter get vertical spacing.
+   Shift+Enter produces a <br> inside a paragraph and will not create extra margin. */
+padded p {
+	margin: 0.5rem 0;
+	line-height: 1.45;
+}
+
 .sidebar-header {
 	display: flex;
 	justify-content: flex-start;

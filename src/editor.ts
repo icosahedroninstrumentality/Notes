@@ -213,7 +213,8 @@ export function createToolbar(
 		saveCurrentDoc: () => void,
 		setModified: (v: boolean) => void,
 		enforceFont: (p: HTMLElement, font: string) => void,
-		getCurrentDocumentFont: () => string
+		getCurrentDocumentFont: () => string,
+		setCurrentDocumentFont?: (font: string) => void
 	}
 ) {
 	const toolbar = document.querySelector('.editor-toolbar') as HTMLElement | null;
@@ -249,7 +250,13 @@ export function createToolbar(
 			if (!padded) return;
 			const font = fontSel.value;
 			handlers.enforceFont(padded, font);
-			handlers.saveCurrentDoc();
+			// persist the selected font immediately
+			if (handlers.setCurrentDocumentFont) {
+				handlers.setCurrentDocumentFont(font);
+			} else {
+				handlers.setModified(true);
+				handlers.saveCurrentDoc();
+			}
 		});
 	}
 

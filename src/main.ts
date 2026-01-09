@@ -476,7 +476,20 @@ function initEditor() {
 		saveCurrentDoc,
 		setModified,
 		enforceFont,
-		getCurrentDocumentFont: () => (currentId && docs[currentId]) ? docs[currentId].font || 'Arial, Helvetica, sans-serif' : 'Arial, Helvetica, sans-serif'
+		getCurrentDocumentFont: () => (currentId && docs[currentId]) ? docs[currentId].font || 'Arial, Helvetica, sans-serif' : 'Arial, Helvetica, sans-serif',
+		setCurrentDocumentFont: (font: string) => {
+			if (!currentId) return;
+			docs[currentId].font = font;
+			docs[currentId].lastSaved = now();
+			lastKnownSaveTime = docs[currentId].lastSaved;
+			saveDocsToStorage(docs);
+			// apply font immediately and update UI
+			const paddedEl = document.querySelector('padded') as HTMLElement | null;
+			if (paddedEl) enforceFont(paddedEl, font);
+			setModified(false);
+			renderSidebar();
+			updateHeader(docs[currentId]);
+		}
 	});
 
 	setupEditor({

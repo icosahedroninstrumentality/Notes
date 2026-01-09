@@ -4,6 +4,7 @@ export const DOCS_KEY = 'notes:documents';
 export const CURRENT_KEY = 'notes:current';
 export const POLL_MS = 1000;
 export const IMAGES_KEY = 'notes:images';
+export const IMAGE_KEY_PREFIX = 'notes:image:';
 
 // Persistent background color key (hex string, e.g. "#000000")
 export const BG_KEY = 'notes:background';
@@ -20,29 +21,52 @@ export function saveBgDisabledToStorage(v: boolean) { localStorage.setItem(BG_DI
 
 // Images storage helpers - store images as data URLs in a map saved to localStorage
 export function loadImagesFromStorage(): Record<string, string> {
+	// Return a map constructed from per-image keys (backwards compatible with old IMAGES_KEY map)
+	const out: Record<string, string> = {};
 	try {
-		const raw = localStorage.getItem(IMAGES_KEY);
-		if (!raw) return {};
-		return JSON.parse(raw) as Record<string, string> || {};
+		// first, try per-image keys
+		for (let i = 0; i < localStorage.length; i++) {
+			const key = localStorage.key(i);
+			if (!key) continue;
+			if (key.startsWith(IMAGE_KEY_PREFIX)) {
+				const id = key.slice(IMAGE_KEY_PREFIX.length);
+				const val = localStorage.getItem(key);
+				if (val) out[id] = val;
+			}
+		}
+		// fallback for legacy map stored under IMAGES_KEY
+		if (!Object.keys(out).length) {
+			const raw = localStorage.getItem(IMAGES_KEY);
+			if (!raw) return out;
+			try {
+				const parsed = JSON.parse(raw) as Record<string, string> || {};
+				return parsed;
+			} catch (e) {
+				// ignore and return whatever we collected
+			}
+		}
+		return out;
 	} catch (e) {
-		console.warn('Failed to parse images from storage', e);
-		return {};
+		console.warn('Failed to load images from storage', e);
+		return out;
 	}
 }
 
 export function saveImagesToStorage(images: Record<string, string>) {
+	// Backwards-compat: write entire map under IMAGES_KEY for older consumers (migration will convert)
 	try { localStorage.setItem(IMAGES_KEY, JSON.stringify(images)); } catch (e) { console.warn('Failed to save images to storage', e); }
 }
 
 export function saveImageToStorage(id: string, dataUrl: string) {
-	const imgs = loadImagesFromStorage();
-	imgs[id] = dataUrl;
-	saveImagesToStorage(imgs);
+	try { localStorage.setItem(IMAGE_KEY_PREFIX + id, dataUrl); } catch (e) { console.warn('Failed to save image', e); }
 }
 
 export function getImageFromStorage(id: string): string | undefined {
-	const imgs = loadImagesFromStorage();
-	return imgs[id];
+	try { return localStorage.getItem(IMAGE_KEY_PREFIX + id) || undefined; } catch (e) { console.warn('Failed to get image', e); return undefined; }
+}
+
+export function removeImageFromStorage(id: string) {
+	try { localStorage.removeItem(IMAGE_KEY_PREFIX + id); } catch (e) { console.warn('Failed to remove image', e); }
 }
 
 // Per-doc content storage (store content separately so we can lazy-load/unload)
@@ -73,13 +97,19 @@ export function loadDocsFromStorage(): Record<string, Doc> {
 			if (ver < 2) {
 				const changed = migrateDocsImages(parsed);
 				if (changed) saveDocsToStorage(parsed);
+		}
+		if (ver < 3) {
+			const changed2 = migrateSplitDocs(parsed);
+			if (changed2) saveDocsToStorage(parsed);
+		}
+		// v4: migrate legacy images map into per-image keys
+		if (ver < 4) {
+			const changed3 = migrateImagesMapToPerKey();
+			if (changed3) {
+				// nothing to update in docs metadata for this migration
 			}
-			if (ver < 3) {
-				const changed2 = migrateSplitDocs(parsed);
-				if (changed2) saveDocsToStorage(parsed);
-				// note: do not migrate images again here
-			}
-			if (ver < CURRENT_STORAGE_VERSION) setStorageVersion(CURRENT_STORAGE_VERSION);
+		}
+		if (ver < CURRENT_STORAGE_VERSION) setStorageVersion(CURRENT_STORAGE_VERSION);
 		} catch (e) {
 			console.warn('Migration failed', e);
 		}
@@ -96,7 +126,7 @@ export function saveDocsToStorage(docs: Record<string, Doc>) {
 
 // Storage schema versioning
 export const STORAGE_VERSION_KEY = 'notes:storage:version';
-export const CURRENT_STORAGE_VERSION = 3;
+export const CURRENT_STORAGE_VERSION = 4;
 
 export function getStorageVersion(): number {
 	const v = localStorage.getItem(STORAGE_VERSION_KEY);
@@ -151,6 +181,31 @@ export function migrateSplitDocs(docs: Record<string, Doc>): boolean {
 		}
 	}
 	return changed;
+}
+
+// Migrate legacy images map stored under IMAGES_KEY into per-image keys
+export function migrateImagesMapToPerKey(): boolean {
+	const raw = localStorage.getItem(IMAGES_KEY);
+	if (!raw) return false;
+	try {
+		const parsed = JSON.parse(raw) as Record<string, string> || {};
+		let changed = false;
+		for (const id of Object.keys(parsed)) {
+			const data = parsed[id];
+			if (!data) continue;
+			// if a per-key entry already exists, skip
+			if (!localStorage.getItem(IMAGE_KEY_PREFIX + id)) {
+				localStorage.setItem(IMAGE_KEY_PREFIX + id, data);
+				changed = true;
+			}
+		}
+		// remove legacy map once migrated
+		try { localStorage.removeItem(IMAGES_KEY); } catch (e) {}
+		return changed;
+	} catch (e) {
+		console.warn('Failed to migrate images map', e);
+		return false;
+	}
 }
 
 

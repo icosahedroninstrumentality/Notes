@@ -48,12 +48,12 @@ export function ensureCaretVisible(padded: HTMLElement) {
 }
 
 // Utility: convert rgb() or rgba() string to hex if possible
-function rgbStringToHex(s: string): string | null {
-	if (!s) return null;
+function rgbStringToHex(s: string): string {
+	if (!s) return '';
 	// already hex
 	if (s.startsWith('#')) return s;
 	const m = s.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
-	if (!m) return null;
+	if (!m) return '';
 	const r = parseInt(m[1], 10);
 	const g = parseInt(m[2], 10);
 	const b = parseInt(m[3], 10);
@@ -129,7 +129,7 @@ function renderSavedColors(toolbar: Element | null) {
 		btn.dataset.color = c;
 		btn.style.background = c;
 		btn.title = c;
-		if (c.toLowerCase() === (currentColor || '').toLowerCase() || c.toLowerCase() === rgbStringToHex(currentColor || '')?.toLowerCase()) {
+		if (c.toLowerCase() === (currentColor || '').toLowerCase() || c.toLowerCase() === rgbStringToHex(currentColor || '').toLowerCase()) {
 			btn.classList.add('active');
 		}
 		// click applies color

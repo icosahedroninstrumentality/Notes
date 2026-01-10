@@ -13,7 +13,7 @@ export const BG_DISABLED_KEY = 'notes:background:disabled';
 
 export function now() { return Date.now(); }
 
-export function loadBgFromStorage(): string | null { return localStorage.getItem(BG_KEY); }
+export function loadBgFromStorage(): string { return localStorage.getItem(BG_KEY) || ''; }
 export function saveBgToStorage(bg: string) { localStorage.setItem(BG_KEY, bg); }
 
 export function loadBgDisabledFromStorage(): boolean { return localStorage.getItem(BG_DISABLED_KEY) === '1'; }
@@ -61,8 +61,8 @@ export function saveImageToStorage(id: string, dataUrl: string) {
 	try { localStorage.setItem(IMAGE_KEY_PREFIX + id, dataUrl); } catch (e) { console.warn('Failed to save image', e); }
 }
 
-export function getImageFromStorage(id: string): string | undefined {
-	try { return localStorage.getItem(IMAGE_KEY_PREFIX + id) || undefined; } catch (e) { console.warn('Failed to get image', e); return undefined; }
+export function getImageFromStorage(id: string): string {
+	try { return localStorage.getItem(IMAGE_KEY_PREFIX + id) || ''; } catch (e) { console.warn('Failed to get image', e); return ''; }
 }
 
 export function removeImageFromStorage(id: string) {
@@ -76,8 +76,8 @@ export function saveDocContent(id: string, content: string) {
 	try { localStorage.setItem(DOC_DATA_PREFIX + id, content); } catch (e) { console.warn('Failed to save doc content', e); }
 }
 
-export function loadDocContent(id: string): string | null {
-	try { return localStorage.getItem(DOC_DATA_PREFIX + id); } catch (e) { console.warn('Failed to load doc content', e); return null; }
+export function loadDocContent(id: string): string {
+	try { return localStorage.getItem(DOC_DATA_PREFIX + id) || ''; } catch (e) { console.warn('Failed to load doc content', e); return ''; }
 }
 
 export function removeDocContent(id: string) {
@@ -112,6 +112,11 @@ export function loadDocsFromStorage(): Record<string, Doc> {
 		if (ver < CURRENT_STORAGE_VERSION) setStorageVersion(CURRENT_STORAGE_VERSION);
 		} catch (e) {
 			console.warn('Migration failed', e);
+		}
+		// Ensure all docs have a font property (default legacy docs)
+		for (const did of Object.keys(parsed)) {
+			const d = parsed[did];
+			if (d && (d.font == null || d.font === '')) d.font = 'Arial, Helvetica, sans-serif';
 		}
 		return parsed;
 	} catch (err) {
@@ -260,9 +265,9 @@ export function removeUnreferencedImages(docs: Record<string, Doc>): boolean {
 
 export function checkForExternalUpdates(
 	docs: Record<string, Doc>,
-	currentId: string | null,
+	currentId: string,
 	lastKnownSaveTime: number,
-	handlers: { onReplace?: (remoteDoc: Doc) => void, onChange?: () => void }
+	handlers: { onReplace: (remoteDoc: Doc) => void, onChange: () => void }
 ): { changed: boolean, newLastKnownSaveTime?: number } {
 	const remote = loadDocsFromStorage();
 	let changed = false;
@@ -280,13 +285,13 @@ export function checkForExternalUpdates(
 			changed = true;
 		}
 	}
-	if (changed && handlers.onChange) handlers.onChange();
+	if (changed) handlers.onChange();
 
 	if (!currentId) return { changed };
 	const remoteDoc = remote[currentId];
 	if (!remoteDoc) return { changed };
 	if (remoteDoc.lastSaved > lastKnownSaveTime) {
-		if (handlers.onReplace) handlers.onReplace(remoteDoc);
+		handlers.onReplace(remoteDoc);
 		return { changed, newLastKnownSaveTime: remoteDoc.lastSaved };
 	}
 	return { changed };

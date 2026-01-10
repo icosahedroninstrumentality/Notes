@@ -7,7 +7,7 @@ import type { Doc } from './types';
 import { BG_KEY, BG_DISABLED_KEY, loadBgFromStorage, saveBgToStorage, loadBgDisabledFromStorage, saveBgDisabledToStorage } from './store';
 
 let docs: Record<string, Doc> = {};
-let currentId: string | null = null;
+let currentId = '';
 let lastKnownSaveTime = 0;
 let modified = false;
 modified; // shut-up-typescript hack

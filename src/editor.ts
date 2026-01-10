@@ -214,7 +214,7 @@ export function createToolbar(
 		setModified: (v: boolean) => void,
 		enforceFont: (p: HTMLElement, font: string) => void,
 		getCurrentDocumentFont: () => string,
-		setCurrentDocumentFont?: (font: string) => void
+		setCurrentDocumentFont: (font: string) => void
 	}
 ) {
 	const toolbar = document.querySelector('.editor-toolbar') as HTMLElement | null;
@@ -326,8 +326,8 @@ export function setupEditor(options: {
 	padded: HTMLElement,
 	getDocs: () => Record<string, Doc>,
 	setDocs: (d: Record<string, Doc>) => void,
-	getCurrentId: () => string | null,
-	setCurrentId: (id: string | null) => void,
+	getCurrentId: () => string,
+	setCurrentId: (id: string) => void,
 	getLastKnownSaveTime: () => number,
 	setLastKnownSaveTime: (t: number) => void,
 	saveCurrentDoc: (opts?: { forceTimestamp?: boolean }) => void,

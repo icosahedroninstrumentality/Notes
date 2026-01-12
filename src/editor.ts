@@ -408,8 +408,7 @@ export function setupEditor(options: {
 		}
 
 		if (e.key === 'Enter') {
-			// Only insert an unpadded newline (<br>) when the user explicitly presses Shift+Enter.
-			// For plain Enter, insert a paragraph block to avoid bare <br> insertions.
+			// Shift+Enter inserts an unpadded newline (<br>).
 			if (e.shiftKey) {
 				e.preventDefault();
 				try {
@@ -423,18 +422,46 @@ export function setupEditor(options: {
 					ensureCaretVisible(padded);
 				}, 0);
 			} else {
-				e.preventDefault();
-				// insert a paragraph to keep content padded and avoid bare <br>s
-				try {
-					document.execCommand('insertHTML', false, '<p><br></p>');
-				} catch (err) {
-					// fallback: try insertParagraph if available
-					try { document.execCommand('insertParagraph'); } catch (e) { /* ignore */ }
-				}
-				options.setModified(true);
-				options.updateToolbarState(document.querySelector('.editor-toolbar'));
+				// Let the browser perform the default Enter behavior (split/create paragraph),
+				// then normalize any duplicate empty blocks that may have been inserted.
 				window.setTimeout(() => {
+					options.updateToolbarState(document.querySelector('.editor-toolbar'));
 					ensureCaretVisible(padded);
+					// collapse consecutive empty blocks created by Enter (e.g., two empty <p>s)
+					(() => {
+						const sel = window.getSelection();
+						if (!sel || !sel.rangeCount) return;
+						let node: Node | null = sel.anchorNode;
+						if (!node) return;
+						const isBlockTag = (n: Node): boolean => {
+							if (n.nodeType !== Node.ELEMENT_NODE) return false;
+							const t = (n as Element).tagName.toLowerCase();
+							return ['p','div','li','blockquote','h1','h2','h3','h4','h5','h6'].includes(t);
+						};
+						let block: HTMLElement | null = null;
+						let cur: Node | null = node;
+						while (cur && cur !== padded) {
+							if (isBlockTag(cur)) { block = cur as HTMLElement; break; }
+							cur = cur.parentNode;
+						}
+						if (!block) return;
+						const prev = block.previousElementSibling as HTMLElement | null;
+						if (!prev) return;
+						const isEmpty = (b: HTMLElement) => {
+							const html = b.innerHTML.trim().replace(/\u200B/g, '');
+							return html === '' || /^<br\s*\/?>$/i.test(html) || html === '&nbsp;';
+						};
+						if (isEmpty(block) && isEmpty(prev)) {
+							prev.parentNode?.removeChild(prev);
+							// place caret at start of current block
+							const range = document.createRange();
+							range.selectNodeContents(block);
+							range.collapse(true);
+							sel.removeAllRanges();
+							sel.addRange(range);
+							options.setModified(true);
+						}
+					})();
 				}, 0);
 			}
 		}

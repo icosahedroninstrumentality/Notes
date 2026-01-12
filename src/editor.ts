@@ -408,11 +408,35 @@ export function setupEditor(options: {
 		}
 
 		if (e.key === 'Enter') {
-			// allow default insertion but ensure the editor container scrolls to keep caret visible
-			window.setTimeout(() => {
+			// Only insert an unpadded newline (<br>) when the user explicitly presses Shift+Enter.
+			// For plain Enter, insert a paragraph block to avoid bare <br> insertions.
+			if (e.shiftKey) {
+				e.preventDefault();
+				try {
+					document.execCommand('insertHTML', false, '<br>');
+				} catch (err) {
+					document.execCommand('insertText', false, '\n');
+				}
+				options.setModified(true);
 				options.updateToolbarState(document.querySelector('.editor-toolbar'));
-				ensureCaretVisible(padded);
-			}, 0);
+				window.setTimeout(() => {
+					ensureCaretVisible(padded);
+				}, 0);
+			} else {
+				e.preventDefault();
+				// insert a paragraph to keep content padded and avoid bare <br>s
+				try {
+					document.execCommand('insertHTML', false, '<p><br></p>');
+				} catch (err) {
+					// fallback: try insertParagraph if available
+					try { document.execCommand('insertParagraph'); } catch (e) { /* ignore */ }
+				}
+				options.setModified(true);
+				options.updateToolbarState(document.querySelector('.editor-toolbar'));
+				window.setTimeout(() => {
+					ensureCaretVisible(padded);
+				}, 0);
+			}
 		}
 
 		if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
